@@ -1,4 +1,4 @@
-export type UserRole = 'admin' | 'recruiter' | 'candidate';
+export type UserRole = 'superAdmin' | 'recruiter';
 export type CandidateStatus = 'pending' | 'interviewed' | 'hired' | 'rejected';
 
 export interface User {
@@ -10,24 +10,35 @@ export interface User {
 
 export interface Candidate {
   id: string;
-  first_name: string;
-  last_name: string;
-  email: string;
+  full_name: string;
+  email?: string;
   phone?: string;
-  position?: string;
+  position: string;
+  experience_years?: number;
+  expected_salary?: number;
+  location?: string;
   status: CandidateStatus;
+  source: 'internal' | 'scraping';
   resume_url?: string;
-  created_by: string;
+  profile_url?: string;
+  created_by?: string;
   created_at: string;
   updated_at: string;
 }
 
+export interface SearchHistory {
+  id: string;
+  query: string;
+  candidates_found: number;
+  user_id: string;
+  created_at: string;
+}
+
 export interface ChatMessage {
   id: string;
-  room_id: string;
-  sender_id: string;
+  role: 'user' | 'assistant';
   content: string;
-  is_read: boolean;
+  candidates?: Candidate[];
   created_at: string;
 }
 
@@ -39,8 +50,8 @@ export interface PaginatedResponse<T> {
   totalPages: number;
 }
 
-export interface AuthTokens {
-  accessToken: string;
-  refreshToken: string;
-  user: User;
+export interface Toast {
+  id: string;
+  type: 'success' | 'error' | 'info';
+  message: string;
 }

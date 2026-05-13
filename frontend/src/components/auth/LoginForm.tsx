@@ -17,13 +17,11 @@ export const LoginForm = () => {
     setLoading(true);
     setError(null);
     try {
-      const { accessToken, refreshToken, user } = await authService.login(email, password);
-      localStorage.setItem('accessToken', accessToken);
-      localStorage.setItem('refreshToken', refreshToken);
+      const user = await authService.login(email, password);
       setStoredUser(user);
       router.push('/dashboard');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al iniciar sesión');
+      setError(err instanceof Error ? err.message : 'Credenciales incorrectas');
     } finally {
       setLoading(false);
     }
@@ -37,43 +35,29 @@ export const LoginForm = () => {
           <span className="auth-logo-name">Semillero</span>
         </div>
 
-        <h2>Bienvenido</h2>
-        <p className="subtitle">Inicia sesión para continuar</p>
+        <h2>Iniciar sesión</h2>
+        <p className="subtitle">Ingresa tus credenciales para continuar</p>
 
         {error && <div className="form-error">{error}</div>}
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label htmlFor="email">Correo electrónico</label>
-            <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="tu@email.com"
-              required
-              autoFocus
-            />
+            <input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+              placeholder="tu@email.com" required autoFocus />
           </div>
           <div className="form-group">
             <label htmlFor="password">Contraseña</label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              required
-            />
+            <input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••" required />
           </div>
           <button type="submit" className="btn-primary" disabled={loading}>
             {loading ? 'Ingresando...' : 'Ingresar'}
           </button>
         </form>
 
-        <p style={{ marginTop: 20, textAlign: 'center', fontSize: 13, color: 'var(--text-3)' }}>
-          ¿No tienes cuenta?{' '}
-          <Link href="/register">Regístrate</Link>
+        <p style={{ marginTop: 16, textAlign: 'center', fontSize: 13, color: 'var(--text-3)' }}>
+          <Link href="/forgot-password">¿Olvidaste tu contraseña?</Link>
         </p>
       </div>
     </div>
