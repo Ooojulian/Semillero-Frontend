@@ -9,7 +9,29 @@ export interface CandidateFilters {
   max_salary?: number;
 }
 
+export interface CreateCandidateInput {
+  full_name: string;
+  email?: string;
+  phone?: string;
+  position: string;
+  experience_years?: number;
+  expected_salary?: number;
+  location?: string;
+  resume_url?: string;
+}
+
 export const candidateService = {
+  async create(data: CreateCandidateInput): Promise<Candidate> {
+    const { data: { user } } = await supabase.auth.getUser();
+    const { data: result, error } = await supabase
+      .from('candidates')
+      .insert({ ...data, created_by: user?.id })
+      .select()
+      .single();
+    if (error) throw new Error(error.message);
+    return result as Candidate;
+  },
+
   async list(page: number, limit = 15, filters: CandidateFilters = {}): Promise<PaginatedResponse<Candidate>> {
     let query = supabase.from('candidates').select('*', { count: 'exact' });
 
@@ -56,18 +78,12 @@ export const candidateService = {
     if (error) throw new Error(error.message);
   },
 
-  async getStatsByStatus() {
-    const { data, error } = await supabase
-      .from('candidates')
-      .select('status')
-      .then(({ data, error }) => ({
-        data: data?.reduce((acc, c) => {
-          acc[c.status] = (acc[c.status] ?? 0) + 1;
-          return acc;
-        }, {} as Record<string, number>),
-        error,
-      }));
+  async getStatsByStatus(): Promise<Record<string, number>> {
+    const { data, error } = await supabase.from('candidates').select('status');
     if (error) throw new Error(error.message);
-    return data ?? {};
+    return (data ?? []).reduce((acc: Record<string, number>, c: { status: string }) => {
+      acc[c.status] = (acc[c.status] ?? 0) + 1;
+      return acc;
+    }, {});
   },
 };
