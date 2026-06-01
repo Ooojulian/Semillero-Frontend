@@ -1,0 +1,359 @@
+DOCUMENTACIÓN DEL WORKFLOW: Automated_Recruiter webhook
+Plataforma: n8n
+ID del Workflow: t50zGqbvjO3IN8Mc
+Última actualización: 2026-05-28
+===========================================================
+
+-----------------------------------------------------------
+1. DESCRIPCIÓN GENERAL
+-----------------------------------------------------------
+Este workflow automatiza el proceso de reclutamiento. Recibe
+mensajes de un usuario a través de un webhook, analiza la
+intención del mensaje (nueva solicitud, continuar solicitud,
+o mensaje no relacionado), y según el caso, busca candidatos
+en una base de datos interna (Google Sheets) o en LinkedIn
+mediante SerpApi.
+
+-----------------------------------------------------------
+2. TECNOLOGÍAS Y SERVICIOS UTILIZADOS — CREDENCIALES
+-----------------------------------------------------------
+Configura las siguientes credenciales en n8n antes de usar
+el workflow:
+
+  OpenRouter (modelo: deepseek/deepseek-v4-flash)
+  Uso: análisis inicial del mensaje del usuario
+    API Key: [CONFIGURAR EN N8N]
+
+  OpenAI (modelo: gpt-4o-mini)
+  Uso: filtrado inteligente de candidatos con IA
+    API Key: [CONFIGURAR EN N8N]
+
+  Google Sheets (OAuth2)
+  Uso: lectura y escritura de candidatos y solicitudes
+    ClientID: [CONFIGURAR EN N8N]
+    clientSecret: [CONFIGURAR EN N8N]
+
+  SerpApi
+  Uso: búsqueda de candidatos en LinkedIn
+    API Key: [CONFIGURAR EN N8N]
+
+  Webhook HTTP POST
+  Uso: punto de entrada del flujo
+    Path: /procesoReclutamiento
+
+-----------------------------------------------------------
+3. PUNTO DE ENTRADA
+-----------------------------------------------------------
+Nodo: Webhook
+- Método: POST
+- Path: /procesoReclutamiento
+- El cuerpo del request debe incluir:
+    {
+      "mensaje": "<texto del usuario>",
+      "token": "<token de sesión>"
+    }
+
+-----------------------------------------------------------
+4. FLUJO PRINCIPAL PASO A PASO
+-----------------------------------------------------------
+
+PASO 1 — Edit Fields
+  Inicializa variables globales:
+  - Saludo (mensaje de bienvenida con opciones al usuario)
+  - Respuesta1 (solicita datos si es solicitud nueva)
+  - Respuesta2 (solicita número de solicitud si es continuar)
+  - apikey (clave para SerpApi)
+  - Token_ (token dinámico del webhook)
+
+PASO 2 — ANALIZA (AI Agent - OpenRouter/DeepSeek)
+  Analiza el mensaje del usuario y lo clasifica en:
+
+  a) "solicitud nueva"
+     El usuario quiere buscar un nuevo candidato.
+     Extrae: cargo, salario (si existe), nivel de experiencia.
+     Regla de experiencia:
+       0-2 años → junior
+       3-5 años → semi senior
+       6+ años  → senior
+
+  b) "continuar solicitud"
+     El usuario quiere continuar con una solicitud existente.
+     Extrae: número de solicitud y mensaje original.
+
+  c) "NA"
+     Mensaje no relacionado (saludos, preguntas genéricas).
+     Responde con el mensaje de saludo predefinido.
+
+  Responde siempre en JSON puro, sin markdown.
+
+PASO 3 — CODETIPO1 (Code)
+  Parsea el JSON devuelto por ANALIZA.
+  Extrae los campos: tipo, mensaje, análisis completo.
+
+PASO 4 — Switch3 (Enrutador)
+  Según el valor de "tipo":
+
+  → "solicitud nueva"     → continúa por la rama de nueva solicitud
+  → "continuar solicitud" → continúa por la rama de solicitud existente
+  → "NA"                  → (sin acción definida actualmente)
+
+-----------------------------------------------------------
+5. RAMA A: SOLICITUD NUEVA
+-----------------------------------------------------------
+
+PASO A1 — Get row(s) in sheet
+  Lee la hoja "ListadoCandidatos" del Google Sheet "Candidatos"
+  (columna A), para obtener el último ID de solicitud.
+
+PASO A2 — Code7
+  Calcula el número de la nueva solicitud:
+  nuevoId = ultimoId + 1
+
+PASO A3 — Merge7
+  Combina el nuevo número de solicitud con los datos del análisis.
+
+PASO A4 — Crear #solicitud1 (Code)
+  Normaliza los datos:
+  - numeroSolicitud
+  - tipo, mensaje, cargo, salario, experiencia
+  - Url_Testelum, Token
+
+  Conecta en paralelo dos salidas:
+  → Hacia BaseReclutamiento (para buscar candidatos internos)
+  → Hacia Merge4 (para usarse después con candidatos externos)
+
+PASO A5 — BaseReclutamiento (Google Sheets)
+  Lee la hoja "BaseReclutamiento" del Google Sheet interno.
+  Filtra candidatos con ESTADO = "stand by".
+
+PASO A6 — Merge5 (Merge)
+  Une los candidatos de la base interna con los datos de la
+  solicitud (viene de Crear #solicitud1).
+
+PASO A7 — formatterjson1 (Code)
+  Agrupa los candidatos en un array junto con el número de
+  solicitud, como preparación para el merge final.
+
+PASO A8 — Merge4 (Merge)
+  Combina:
+  - Los candidatos agrupados (formatterjson1)
+  - Los datos de la solicitud (Crear #solicitud1)
+
+PASO A9 — Code6 (Code)
+  Aplana la estructura: itera sobre los candidatos y combina
+  cada uno con los datos de la solicitud (cargo, salario,
+  experiencia, Token, etc.).
+
+PASO A10 — Code8 (Code)
+  Reagrupa todos los candidatos individuales en un solo objeto:
+  {
+    numeroSolicitud, cargoSolicitado, salario, experiencia,
+    totalCandidatos, candidatos: [...]
+  }
+
+PASO A11 — AI Agent 1 / AI Agent1 (OpenAI gpt-4o-mini)
+  Agente de IA que filtra los candidatos según:
+  - CARGO coincide semánticamente con el solicitado
+  - salario >= ASPIRACION del candidato
+  - experiencia (EXPER) coincide con el nivel solicitado
+
+  Devuelve JSON con:
+  {
+    "candidatos_filtrados": [...],
+    "total_encontrados": N
+  }
+
+PASO A12 — ValidacionBusqueda1 (Code)
+  Parsea el output del agente IA.
+  Extrae candidatos_filtrados y total_encontrados.
+
+PASO A13 — variable1 (Set)
+  Guarda dos variables para uso posterior:
+  - fullData: todos los datos de candidatos filtrados
+  - analisisSolicitud: análisis original del mensaje
+
+PASO A14 — Switch4 (Enrutador por cantidad de candidatos)
+  Según total_candidatos:
+  - >10 → rama "elegir solo" (candidatos internos exceden 10)
+  - =10 → rama "normalizacion 3" (exactamente 10)
+  - <10 → rama CODESERPAPI1 + Code9 (hay que buscar más en LinkedIn)
+
+-----------------------------------------------------------
+5.1 SUB-RAMA: MÁS DE 10 CANDIDATOS INTERNOS (>10)
+-----------------------------------------------------------
+elegir solo (Code) → normalizacion 2 (Code)
+  Toma los primeros 10 candidatos.
+
+normalizacion 2 → Append row in sheet3 (Google Sheets)
+  Guarda los 10 candidatos en la hoja "ListadoCandidatos"
+  del Google Sheet "Candidatos".
+
+Append row in sheet3 → Code10 (Code)
+  Prepara el payload para enviar:
+  - Divide nombre en firstName / lastName
+  - Agrega campos: email, jobTitle, experiencia, aspiración,
+    linkedinLink, cvLink, estado, fechaIngreso.
+
+-----------------------------------------------------------
+5.2 SUB-RAMA: EXACTAMENTE 10 CANDIDATOS (=10)
+-----------------------------------------------------------
+normalizacion 3 (Code)
+  Extrae candidatos uno a uno desde fullData y analisisSolicitud.
+
+normalizacion 3 → Append row in sheet4 (Google Sheets)
+  Guarda en "ListadoCandidatos".
+
+-----------------------------------------------------------
+5.3 SUB-RAMA: MENOS DE 10 CANDIDATOS (<10) — Proceso Scraper
+-----------------------------------------------------------
+Cuando hay menos de 10 candidatos internos, el flujo busca
+candidatos adicionales en LinkedIn usando SerpApi.
+
+PASO S1 — CODESERPAPI1 (Code)
+  Construye la URL de búsqueda de SerpApi:
+  - Extrae profesión/cargo del análisis
+  - Genera query Google: site:linkedin.com/in + cargo
+  - Ubicación: Colombia
+  - Retorna la URL lista para consultar
+
+PASO S2 — HTTP Request2
+  Ejecuta la búsqueda GET a SerpApi con la URL construida.
+  Agrega la API key al final de la URL.
+
+PASO S3 — NormalizadorCandidatos1 (Code)
+  Procesa los resultados de SerpApi (organic_results).
+  Extrae por candidato: nombre, profesión, URL LinkedIn,
+  especialización (frameworks detectados), fecha de ingreso.
+
+Al mismo tiempo, por la otra rama del Switch4 (<10):
+
+PASO S4 — Code9 (Code)
+  Extrae candidatos internos del fullData (los que sí había).
+
+PASO S5 — Merge6 (Merge)
+  Combina candidatos internos (Code9) con los encontrados
+  en LinkedIn (NormalizadorCandidatos1).
+
+PASO S6 — normalizacion scraper1 (Code)
+  Normaliza TODOS los candidatos (internos + LinkedIn) en
+  una estructura uniforme:
+  numero de solicitud, nombre, cargo, experiencia, correo,
+  profesion, urlLinkedin, fechaIngreso, Aspiracion.
+
+PASO S7 — selecciona 10 inter exter (Code)
+  Prioriza candidatos SIN LinkedIn (internos con correo) y
+  completa hasta 10 con candidatos que tienen URL de LinkedIn.
+
+PASO S8 — Append row in sheet5 (Google Sheets)
+  Guarda los hasta 10 candidatos en "ListadoCandidatos"
+  del Google Sheet "Candidatos".
+
+PASO S9 — Code11 (Code)
+  Prepara el payload final:
+  - Divide nombre en firstName / lastName
+  - Si no hay email pero sí LinkedIn, usa el LinkedIn como email
+  - Convierte aspiración a número (ej: "1 millón" → 1000000)
+  - Campos: lastName, firstName, email, jobTitle, hireDate,
+    experience, salaryExpectation, linkedinLink, cvLink,
+    requestStatus, candidateStatus, actionUser
+
+-----------------------------------------------------------
+6. RAMA B: CONTINUAR SOLICITUD
+-----------------------------------------------------------
+Cuando el tipo es "continuar solicitud", el flujo pasa por
+Switch3 → Merge7 (entrada 1).
+
+Merge7 recibe también el nuevo número de solicitud (Code7),
+pero en este caso el usuario ya tiene un número de solicitud
+existente. El flujo continúa igual desde Crear #solicitud1
+en adelante, usando el número de solicitud que proporcionó
+el usuario (extraído por ANALIZA en el campo numero_solicitud).
+
+-----------------------------------------------------------
+7. GOOGLE SHEETS INVOLUCRADOS
+-----------------------------------------------------------
+1. BaseReclutamiento (ID: 1iXqva70GWk-3IRZe_DCiU6IqK8xDvBGTRlonfnFZuZc)
+   - Hoja: BaseReclutamiento
+   - Uso: Fuente de candidatos internos (estado "stand by")
+   - Campos relevantes: CARGO, ASPIRACIÓN $, EXPER., ESTADO,
+     NOMBRES COMPLETOS, CLIENTE, CORREO, FECHA DE ENVÍO
+
+2. Candidatos — Solicitudes (ID: 1n7foRyk2_tVOA_0deM18IlRO8STnXvlkQlUqHXdm8cQ)
+   - Hoja: ListadoCandidatos
+   - Uso: Registro de candidatos asignados a cada solicitud
+   - Campos: IdSolicitud, Nombre, Correo Personal, urlLinkedin,
+     Especializacion, Experiencia, Aspiracion, Estado,
+     Fecha Ingreso, Documento HV
+
+3. Candidatos — Copia (ID: 1XqjuN0B4MKGqSkxYX3qqkisQa-3Ke0QzmUoF4jEOBGs)
+   - Hoja: ListadoCandidatos
+   - Uso: Copia adicional de registro (nodos sheet3 y sheet4)
+
+-----------------------------------------------------------
+8. INTEGRACIÓN CON TESTELUM (API externa)
+-----------------------------------------------------------
+URL base: https://apptestplatformapi.azurewebsites.net/v1/rs/matrix/test-platform-dev/
+Autenticación: token dinámico (viene del webhook) + apikey fija
+
+Payload que se construye (Code10, Code11, Code12):
+{
+  "requestDescription": "<mensaje original del usuario>",
+  "candidates": [
+    {
+      "lastName": "",
+      "firstName": "",
+      "email": "",
+      "documentNumber": null,
+      "phoneNumber": null,
+      "jobTitle": "",
+      "hireDate": "YYYY-MM-DDTHH:MM:SS",
+      "experience": "",
+      "salaryExpectation": 0,
+      "linkedinLink": "",
+      "cvLink": null,
+      "requestStatus": "Pendiente de Revisión",
+      "candidateStatus": "En Proceso",
+      "requestStatusDesc": "Pendiente de Revisión",
+      "candidateStatusDesc": "En Proceso",
+      "actionUser": "adminN8N@testN8Nplatform.com"
+    }
+  ]
+}
+
+-----------------------------------------------------------
+9. RESUMEN DEL ÁRBOL DE DECISIÓN
+-----------------------------------------------------------
+
+Webhook
+  └─► Edit Fields
+        └─► ANALIZA (DeepSeek IA)
+              └─► CODETIPO1
+                    └─► Switch3
+                          ├─► [solicitud nueva]
+                          │     └─► Get row(s) in sheet
+                          │           └─► Code7
+                          │                 └─► Merge7
+                          │                       └─► Crear #solicitud1
+                          │                             ├─► BaseReclutamiento
+                          │                             │     └─► Merge5
+                          │                             │           └─► formatterjson1
+                          │                             │                 └─► Merge4
+                          │                             │                       └─► Code6
+                          │                             │                             └─► Code8
+                          │                             │                                   └─► AI Agent (OpenAI)
+                          │                             │                                         └─► ValidacionBusqueda1
+                          │                             │                                               └─► variable1
+                          │                             │                                                     └─► Switch4
+                          │                             │                                                           ├─► >10 → elegir solo → norm2 → Sheet3 → Code10
+                          │                             │                                                           ├─► =10 → norm3 → Sheet4 → Code12
+                          │                             │                                                           └─► <10 → CODESERPAPI1 → HTTP SerpApi → NormalizadorCandidatos1
+                          │                             │                                                                     + Code9 (candidatos internos)
+                          │                             │                                                                       └─► Merge6 → normalizacion scraper1
+                          │                             │                                                                                   └─► selecciona 10 inter exter
+                          │                             │                                                                                         └─► Sheet5 → Code11
+                          │                             └─► [continuar] → Merge7 (mismo flujo desde Crear #solicitud1)
+                          └─► [NA] → (sin acción)
+
+===========================================================
+  Fin del documento
+===========================================================
