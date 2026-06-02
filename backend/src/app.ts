@@ -8,6 +8,7 @@ import { logger } from './utils/logger';
 import authRouter from './routes/auth';
 import candidatesRouter from './routes/candidates';
 import adminRouter from './routes/admin';
+import chatRouter from './routes/chat';
 import { config } from './config';
 
 export const createApp = () => {
@@ -25,6 +26,7 @@ export const createApp = () => {
   app.use('/api/auth', authRouter);
   app.use('/api/candidates', candidatesRouter);
   app.use('/api/admin', adminRouter);
+  app.use('/api/chat', chatRouter);
 
   app.use(errorHandler);
 
