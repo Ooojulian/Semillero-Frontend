@@ -1,60 +1,80 @@
 'use client';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { ChatMessage, Candidate } from '../../types';
-import { getStoredUser } from '../../lib/auth';
 import { supabase } from '../../lib/supabase';
 
 const formatTime = (iso: string) =>
   new Date(iso).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
 
 export const ChatView = () => {
-  const user = getStoredUser();
+  const [userId, setUserId] = useState<string | null>(null);
+  const [token, setToken] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const initialized = useRef(false);
 
+  // Obtener sesión una sola vez al montar
   useEffect(() => {
-    if (!user) return;
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) return;
+      setUserId(session.user.id);
+      setToken(session.access_token);
+    });
+  }, []);
+
+  // Cargar historial cuando tengamos userId
+  useEffect(() => {
+    if (!userId || initialized.current) return;
+    initialized.current = true;
     supabase
       .from('chat_history')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .order('created_at', { ascending: true })
       .limit(50)
       .then(({ data }) => {
-        if (data) setMessages(data as ChatMessage[]);
+        if (data && data.length > 0) setMessages(data as ChatMessage[]);
       });
-  }, [user]);
+  }, [userId]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const sendMessage = async () => {
-    if (!input.trim() || loading) return;
-    const userMsg: ChatMessage = {
-      id: Math.random().toString(36).slice(2),
-      role: 'user',
-      content: input.trim(),
-      created_at: new Date().toISOString(),
-    };
-    setMessages((prev) => [...prev, userMsg]);
+  const sendMessage = useCallback(async () => {
+    if (!input.trim() || loading || !token) return;
+
+    const content = input.trim();
     setInput('');
     setLoading(true);
 
+    const tempId = Math.random().toString(36).slice(2);
+    const userMsg: ChatMessage = {
+      id: tempId,
+      role: 'user',
+      content,
+      created_at: new Date().toISOString(),
+    };
+    setMessages((prev) => [...prev, userMsg]);
+
     try {
-      const { data: { session } } = await supabase.auth.getSession();
       const res = await fetch('/api/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
-        body: JSON.stringify({ message: userMsg.content }),
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ message: content }),
       });
+
       const body = await res.json();
+
       const assistantMsg: ChatMessage = {
         id: Math.random().toString(36).slice(2),
         role: 'assistant',
-        content: body.message ?? 'Procesando tu solicitud...',
+        content: body.message ?? 'No se pudo obtener respuesta.',
         candidates: body.candidates,
         created_at: new Date().toISOString(),
       };
@@ -69,10 +89,14 @@ export const ChatView = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [input, loading, token]);
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      e.stopPropagation();
+      sendMessage();
+    }
   };
 
   return (
@@ -84,7 +108,7 @@ export const ChatView = () => {
 
       <div className="chat-room" style={{ height: 'calc(100vh - 200px)' }}>
         <div className="chat-messages">
-          {messages.length === 0 && (
+          {messages.length === 0 && !loading && (
             <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-3)' }}>
               <p style={{ fontSize: 32, marginBottom: 12 }}>🔍</p>
               <p style={{ fontSize: 15, marginBottom: 6, color: 'var(--text-2)' }}>Empieza una búsqueda</p>
@@ -96,7 +120,7 @@ export const ChatView = () => {
             <div key={msg.id}>
               <div className={`chat-message ${msg.role === 'user' ? 'own' : 'other'}`}>
                 <div className="bubble">
-                  <p>{msg.content}</p>
+                  <p style={{ whiteSpace: 'pre-wrap' }}>{msg.content}</p>
                   <span className="timestamp">{formatTime(msg.created_at)}</span>
                 </div>
               </div>
@@ -111,7 +135,11 @@ export const ChatView = () => {
               <div className="bubble">
                 <div style={{ display: 'flex', gap: 4, alignItems: 'center', padding: '4px 0' }}>
                   {[0, 1, 2].map((i) => (
-                    <span key={i} style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--text-3)', animation: `bounce .9s ${i * 0.15}s infinite` }} />
+                    <span key={i} style={{
+                      width: 6, height: 6, borderRadius: '50%',
+                      background: 'var(--text-3)',
+                      animation: `bounce .9s ${i * 0.15}s infinite`,
+                    }} />
                   ))}
                 </div>
               </div>
@@ -129,7 +157,12 @@ export const ChatView = () => {
             rows={1}
             disabled={loading}
           />
-          <button onClick={sendMessage} disabled={loading || !input.trim()} aria-label="Enviar">
+          <button
+            type="button"
+            onClick={sendMessage}
+            disabled={loading || !input.trim()}
+            aria-label="Enviar"
+          >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <line x1="22" y1="2" x2="11" y2="13" />
               <polygon points="22 2 15 22 11 13 2 9 22 2" />
@@ -152,7 +185,7 @@ const CandidateCards = ({ candidates }: { candidates: Candidate[] }) => (
         <div>
           <p style={{ fontWeight: 600, color: 'var(--text-1)', marginBottom: 4 }}>{c.full_name}</p>
           <p style={{ fontSize: 12.5, color: 'var(--text-2)' }}>
-            {c.position} {c.location ? `· ${c.location}` : ''} {c.experience_years ? `· ${c.experience_years} años exp.` : ''}
+            {c.position}{c.location ? ` · ${c.location}` : ''}{c.experience_years ? ` · ${c.experience_years} años exp.` : ''}
           </p>
           {c.expected_salary && (
             <p style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 4 }}>

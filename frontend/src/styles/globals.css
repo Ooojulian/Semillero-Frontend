@@ -646,6 +646,64 @@ input::placeholder, textarea::placeholder { color: var(--text-3); }
   50%       { transform: translateY(-4px); }
 }
 
+/* ─── Stat card extras ───────────────────────────────────── */
+.stat-card { position: relative; transition: border-color var(--transition), box-shadow var(--transition); }
+.stat-card:hover { border-color: var(--border-2); box-shadow: 0 4px 24px rgba(0,0,0,.3); }
+.stat-icon { font-size: 18px; margin-bottom: 8px; opacity: .8; }
+.stat-pct { font-size: 11px; color: var(--text-3); margin-top: 4px; }
+
+/* ─── Charts ─────────────────────────────────────────────── */
+.charts-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+.chart-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px 24px;
+}
+
+.chart-title {
+  font-size: 13px;
+  font-family: var(--font-body);
+  font-weight: 600;
+  color: var(--text-2);
+  margin-bottom: 16px;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+
+.chart-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.legend-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.legend-val {
+  margin-left: auto;
+  font-weight: 600;
+  color: var(--text-1);
+}
+
 /* ─── Responsive ─────────────────────────────────────────── */
 @media (max-width: 768px) {
   .app-layout { grid-template-columns: 1fr; }

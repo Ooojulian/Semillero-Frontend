@@ -1,5 +1,6 @@
 'use client';
 import { useQuery } from '@tanstack/react-query';
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { candidateService } from '../../services/candidateService';
 import { getStoredUser } from '../../lib/auth';
 import { CandidateStatus } from '../../types';
@@ -10,17 +11,13 @@ const STATUS_COLORS: Record<CandidateStatus, string> = {
   hired:       '#34d399',
   rejected:    '#f87171',
 };
-
 const STATUS_LABELS: Record<CandidateStatus, string> = {
-  pending:     'Pendientes',
-  interviewed: 'Entrevistados',
-  hired:       'Contratados',
-  rejected:    'Rechazados',
+  pending: 'Pendientes', interviewed: 'Entrevistados', hired: 'Contratados', rejected: 'Rechazados',
 };
-
 const BADGE: Record<CandidateStatus, string> = {
   pending: 'Pendiente', interviewed: 'Entrevistado', hired: 'Contratado', rejected: 'Rechazado',
 };
+const statuses: CandidateStatus[] = ['pending', 'interviewed', 'hired', 'rejected'];
 
 export const DashboardView = () => {
   const user = getStoredUser();
@@ -28,38 +25,108 @@ export const DashboardView = () => {
   const { data: stats } = useQuery({
     queryKey: ['candidate-stats'],
     queryFn: () => candidateService.getStatsByStatus(),
+    refetchInterval: 30000,
   });
 
   const { data: recent, isLoading } = useQuery({
     queryKey: ['candidates-recent'],
-    queryFn: () => candidateService.list(1, 5),
+    queryFn: () => candidateService.list(1, 8),
+    refetchInterval: 30000,
   });
 
-  const total = stats ? Object.values(stats).reduce((a, b) => a + b, 0) : null;
-  const statuses: CandidateStatus[] = ['pending', 'interviewed', 'hired', 'rejected'];
+  const total = stats ? Object.values(stats).reduce((a, b) => a + b, 0) : 0;
+
+  const pieData = statuses
+    .map((s) => ({ name: STATUS_LABELS[s], value: stats?.[s] ?? 0, color: STATUS_COLORS[s] }))
+    .filter((d) => d.value > 0);
+
+  const barData = statuses.map((s) => ({
+    name: STATUS_LABELS[s].slice(0, 8),
+    value: stats?.[s] ?? 0,
+    fill: STATUS_COLORS[s],
+  }));
+
+  const conversionRate = total > 0 ? Math.round(((stats?.hired ?? 0) / total) * 100) : 0;
 
   return (
     <div>
       <div className="page-header">
         <h1>Dashboard</h1>
-        <p>Bienvenido, {user?.full_name ?? 'Usuario'}</p>
+        <p>Bienvenido de nuevo, <strong style={{ color: 'var(--text-1)' }}>{user?.full_name ?? 'Usuario'}</strong></p>
       </div>
 
+      {/* Stats */}
       <div className="stats-grid">
-        <div className="stat-card">
-          <div className="stat-value" style={{ color: 'var(--text-1)' }}>{total ?? '—'}</div>
+        <div className="stat-card stat-card-total">
+          <div className="stat-icon">👥</div>
+          <div className="stat-value" style={{ color: 'var(--text-1)' }}>{total}</div>
           <div className="stat-label">Total candidatos</div>
         </div>
         {statuses.map((s) => (
           <div key={s} className="stat-card">
-            <div className="stat-value" style={{ color: STATUS_COLORS[s] }}>
-              {stats?.[s] ?? 0}
-            </div>
+            <div className="stat-icon">{s === 'pending' ? '⏳' : s === 'interviewed' ? '🎙️' : s === 'hired' ? '✅' : '❌'}</div>
+            <div className="stat-value" style={{ color: STATUS_COLORS[s] }}>{stats?.[s] ?? 0}</div>
             <div className="stat-label">{STATUS_LABELS[s]}</div>
+            {total > 0 && (
+              <div className="stat-pct">{Math.round(((stats?.[s] ?? 0) / total) * 100)}%</div>
+            )}
           </div>
         ))}
+        <div className="stat-card">
+          <div className="stat-icon">📈</div>
+          <div className="stat-value" style={{ color: 'var(--green)' }}>{conversionRate}%</div>
+          <div className="stat-label">Tasa de contratación</div>
+        </div>
       </div>
 
+      {/* Charts */}
+      {total > 0 && (
+        <div className="charts-grid">
+          <div className="chart-card">
+            <h3 className="chart-title">Distribución por estado</h3>
+            <ResponsiveContainer width="100%" height={220}>
+              <PieChart>
+                <Pie data={pieData} cx="50%" cy="50%" innerRadius={55} outerRadius={85} paddingAngle={3} dataKey="value">
+                  {pieData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+                </Pie>
+                <Tooltip
+                  contentStyle={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }}
+                  formatter={(v: number) => [`${v} candidatos`, '']}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="chart-legend">
+              {pieData.map((d) => (
+                <div key={d.name} className="legend-item">
+                  <span className="legend-dot" style={{ background: d.color }} />
+                  <span>{d.name}</span>
+                  <span className="legend-val">{d.value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="chart-card">
+            <h3 className="chart-title">Candidatos por etapa</h3>
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={barData} barSize={32}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                <XAxis dataKey="name" tick={{ fill: 'var(--text-3)', fontSize: 11 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: 'var(--text-3)', fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} />
+                <Tooltip
+                  contentStyle={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }}
+                  cursor={{ fill: 'rgba(255,255,255,0.04)' }}
+                />
+                <Bar dataKey="value" radius={[6, 6, 0, 0]}>
+                  {barData.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
+
+      {/* Recent */}
       <div style={{ marginTop: 8 }}>
         <h2 style={{ fontSize: '1rem', fontFamily: 'var(--font-body)', fontWeight: 600, marginBottom: 16 }}>
           Actividad reciente
@@ -70,23 +137,30 @@ export const DashboardView = () => {
               <tr>
                 <th>Nombre</th>
                 <th>Cargo</th>
+                <th>Ubicación</th>
                 <th>Estado</th>
-                <th>Fecha</th>
+                <th>Registrado</th>
               </tr>
             </thead>
             <tbody>
               {isLoading
-                ? Array.from({ length: 3 }).map((_, i) => (
+                ? Array.from({ length: 4 }).map((_, i) => (
                     <tr key={i} className="skeleton-row">
-                      {Array.from({ length: 4 }).map((__, j) => <td key={j}><div className="skeleton" /></td>)}
+                      {Array.from({ length: 5 }).map((__, j) => <td key={j}><div className="skeleton" /></td>)}
                     </tr>
                   ))
                 : recent?.items.map((c) => (
                     <tr key={c.id}>
-                      <td style={{ color: 'var(--text-1)', fontWeight: 500 }}>{c.full_name}</td>
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span className="avatar">{c.full_name.split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase()}</span>
+                          <span style={{ color: 'var(--text-1)', fontWeight: 500 }}>{c.full_name}</span>
+                        </div>
+                      </td>
                       <td>{c.position}</td>
+                      <td>{c.location ?? '—'}</td>
                       <td><span className={`badge badge-${c.status}`}>{BADGE[c.status]}</span></td>
-                      <td>{new Date(c.created_at).toLocaleDateString('es-CO')}</td>
+                      <td style={{ color: 'var(--text-3)', fontSize: 12 }}>{new Date(c.created_at).toLocaleDateString('es-CO')}</td>
                     </tr>
                   ))
               }

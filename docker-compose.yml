@@ -9,7 +9,7 @@ services:
       POSTGRES_USER: semillero
       POSTGRES_PASSWORD: semillero_dev
     ports:
-      - "5432:5432"
+      - "5434:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./backend/src/db/migrations/001_initial.sql:/docker-entrypoint-initdb.d/001_initial.sql
