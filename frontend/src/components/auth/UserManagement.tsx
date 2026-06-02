@@ -5,6 +5,7 @@ import { authService } from '../../services/authService';
 import { User, UserRole } from '../../types';
 import { ToastContainer } from '../ui/Toast';
 import { useToast } from '../../hooks/useToast';
+import { ConfirmModal } from '../ui/ConfirmModal';
 
 const ROLE_LABELS: Record<UserRole, string> = {
   superAdmin: 'Super Admin',
@@ -13,6 +14,7 @@ const ROLE_LABELS: Record<UserRole, string> = {
 
 export const UserManagement = () => {
   const [showForm, setShowForm] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
   const queryClient = useQueryClient();
   const toast = useToast();
 
@@ -44,6 +46,14 @@ export const UserManagement = () => {
   return (
     <>
       <ToastContainer toasts={toast.toasts} onRemove={toast.remove} />
+      {deleteTarget && (
+        <ConfirmModal
+          message={`¿Eliminar al usuario "${deleteTarget.full_name}"? Esta acción no se puede deshacer.`}
+          confirmLabel="Eliminar"
+          onConfirm={() => { deleteMutation.mutate(deleteTarget.id); setDeleteTarget(null); }}
+          onCancel={() => setDeleteTarget(null)}
+        />
+      )}
 
       <div>
         <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -104,7 +114,7 @@ export const UserManagement = () => {
                       <td>
                         <button
                           className="btn-danger-sm"
-                          onClick={() => { if (confirm(`¿Eliminar a ${u.full_name}?`)) deleteMutation.mutate(u.id); }}
+                          onClick={() => setDeleteTarget(u)}
                           title="Eliminar usuario"
                         >×</button>
                       </td>

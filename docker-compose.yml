@@ -1,5 +1,3 @@
-version: '3.9'
-
 services:
   db:
     image: postgres:16-alpine
@@ -7,7 +5,7 @@ services:
     environment:
       POSTGRES_DB: semillero
       POSTGRES_USER: semillero
-      POSTGRES_PASSWORD: semillero_dev
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-semillero_dev}
     ports:
       - "5434:5432"
     volumes:
@@ -22,7 +20,7 @@ services:
       NODE_ENV: development
       PORT: 3001
       DATABASE_URL: postgresql://semillero:semillero_dev@db:5432/semillero
-      JWT_SECRET: change-this-to-a-long-random-secret-minimum-32-chars
+      JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRES_IN: 15m
       CORS_ORIGIN: http://localhost:3000
       LOG_LEVEL: info

@@ -71,19 +71,28 @@ export const ChatView = () => {
 
       const body = await res.json();
 
-      const assistantMsg: ChatMessage = {
-        id: Math.random().toString(36).slice(2),
-        role: 'assistant',
-        content: body.message ?? 'No se pudo obtener respuesta.',
-        candidates: body.candidates,
-        created_at: new Date().toISOString(),
-      };
-      setMessages((prev) => [...prev, assistantMsg]);
+      if (!res.ok) {
+        const errText = body?.error ?? `Error ${res.status}`;
+        setMessages((prev) => [...prev, {
+          id: Math.random().toString(36).slice(2),
+          role: 'assistant',
+          content: `⚠️ ${errText}`,
+          created_at: new Date().toISOString(),
+        }]);
+      } else {
+        setMessages((prev) => [...prev, {
+          id: Math.random().toString(36).slice(2),
+          role: 'assistant',
+          content: body.message ?? 'No se pudo obtener respuesta.',
+          candidates: body.candidates,
+          created_at: new Date().toISOString(),
+        }]);
+      }
     } catch {
       setMessages((prev) => [...prev, {
         id: Math.random().toString(36).slice(2),
         role: 'assistant',
-        content: 'Error al procesar la solicitud. Intenta de nuevo.',
+        content: '⚠️ Sin conexión al servidor. Verifica tu red e intenta de nuevo.',
         created_at: new Date().toISOString(),
       }]);
     } finally {

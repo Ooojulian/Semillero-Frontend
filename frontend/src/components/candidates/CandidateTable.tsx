@@ -1,10 +1,11 @@
 'use client';
-import { useState, useCallback } from 'react';
+import { Fragment, useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { candidateService, CandidateFilters } from '../../services/candidateService';
 import { Candidate, CandidateStatus } from '../../types';
 import { useToast } from '../../hooks/useToast';
 import { ToastContainer } from '../ui/Toast';
+import { ConfirmModal } from '../ui/ConfirmModal';
 
 const STATUS_LABELS: Record<CandidateStatus, string> = {
   pending: 'Pendiente', interviewed: 'Entrevistado', hired: 'Contratado', rejected: 'Rechazado',
@@ -39,6 +40,7 @@ export const CandidateTable = ({ onSelect }: Props) => {
   const [filters, setFilters] = useState<CandidateFilters>({});
   const [searchInput, setSearchInput] = useState('');
   const [showFilters, setShowFilters] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Candidate | null>(null);
   const queryClient = useQueryClient();
   const toast = useToast();
 
@@ -83,6 +85,14 @@ export const CandidateTable = ({ onSelect }: Props) => {
   return (
     <>
       <ToastContainer toasts={toast.toasts} onRemove={toast.remove} />
+      {deleteTarget && (
+        <ConfirmModal
+          message={`¿Eliminar a "${deleteTarget.full_name}"? Esta acción no se puede deshacer.`}
+          confirmLabel="Eliminar"
+          onConfirm={() => { deleteMutation.mutate(deleteTarget.id); setDeleteTarget(null); }}
+          onCancel={() => setDeleteTarget(null)}
+        />
+      )}
       <div className="candidate-table-wrapper">
         <div className="table-toolbar">
           <h2 style={{ fontSize: '1rem', fontFamily: 'var(--font-body)', fontWeight: 600 }}>
@@ -273,7 +283,7 @@ export const CandidateTable = ({ onSelect }: Props) => {
                         )}
                         <button
                           className="btn-danger-sm"
-                          onClick={() => { if (confirm(`¿Eliminar a ${c.full_name}?`)) deleteMutation.mutate(c.id); }}
+                          onClick={() => setDeleteTarget(c)}
                           title="Eliminar"
                         >×</button>
                       </td>
@@ -295,10 +305,10 @@ export const CandidateTable = ({ onSelect }: Props) => {
               {Array.from({ length: data.totalPages }, (_, i) => i + 1)
                 .filter((p) => p === 1 || p === data.totalPages || Math.abs(p - page) <= 2)
                 .map((p, idx, arr) => (
-                  <>
-                    {idx > 0 && arr[idx - 1] !== p - 1 && <span key={`ellipsis-${p}`} style={{ padding: '0 4px', color: 'var(--text-3)' }}>…</span>}
-                    <button key={p} onClick={() => setPage(p)} className={p === page ? 'active' : ''}>{p}</button>
-                  </>
+                  <Fragment key={p}>
+                    {idx > 0 && arr[idx - 1] !== p - 1 && <span style={{ padding: '0 4px', color: 'var(--text-3)' }}>…</span>}
+                    <button onClick={() => setPage(p)} className={p === page ? 'active' : ''}>{p}</button>
+                  </Fragment>
                 ))
               }
               <button onClick={() => setPage((p) => p + 1)} disabled={page === data.totalPages}>›</button>

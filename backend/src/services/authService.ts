@@ -8,6 +8,14 @@ import { User, JwtPayload } from '../types';
 
 const SALT_ROUNDS = 12;
 
+function parseDuration(d: string): number {
+  const match = /^(\d+)([smhd])$/.exec(d);
+  if (!match) return 7 * 24 * 60 * 60 * 1000;
+  const n = parseInt(match[1], 10);
+  const unit: Record<string, number> = { s: 1000, m: 60000, h: 3600000, d: 86400000 };
+  return n * unit[match[2]];
+}
+
 export const authService = {
   async register(email: string, password: string, fullName: string, role = 'candidate') {
     const exists = await query('SELECT id FROM users WHERE email = $1', [email]);
@@ -40,7 +48,8 @@ export const authService = {
     );
 
     const refreshToken = uuidv4();
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const refreshMs = parseDuration(config.REFRESH_TOKEN_EXPIRES_IN);
+    const expiresAt = new Date(Date.now() + refreshMs);
     await query(
       'INSERT INTO user_sessions (user_id, refresh_token, expires_at) VALUES ($1, $2, $3)',
       [user.id, refreshToken, expiresAt]
@@ -68,7 +77,16 @@ export const authService = {
       config.JWT_SECRET,
       { expiresIn: config.JWT_EXPIRES_IN }
     );
-    return { accessToken };
+
+    // Rotar refresh token — invalida el anterior
+    const newRefreshToken = uuidv4();
+    const expiresAt = new Date(Date.now() + parseDuration(config.REFRESH_TOKEN_EXPIRES_IN));
+    await query(
+      'UPDATE user_sessions SET refresh_token=$1, expires_at=$2 WHERE refresh_token=$3',
+      [newRefreshToken, expiresAt, refreshToken]
+    );
+
+    return { accessToken, refreshToken: newRefreshToken };
   },
 
   async logout(refreshToken: string) {

@@ -4,7 +4,9 @@ const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   PORT: z.coerce.number().default(3001),
   DATABASE_URL: z.string().url(),
-  JWT_SECRET: z.string().min(32),
+  JWT_SECRET: z.string().min(32).refine(s => !s.startsWith('change-this'), {
+    message: 'JWT_SECRET debe ser cambiado del valor por defecto',
+  }),
   JWT_EXPIRES_IN: z.string().default('15m'),
   REFRESH_TOKEN_EXPIRES_IN: z.string().default('7d'),
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),

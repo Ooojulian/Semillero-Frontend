@@ -17,12 +17,6 @@ export const LoginForm = () => {
     setLoading(true);
     setError(null);
     try {
-      // Demo mode: acceso sin Supabase configurado
-      if (email === 'demo@semillero.com' && password === 'Demo1234') {
-        setStoredUser({ id: 'demo-1', email, full_name: 'Usuario Demo', role: 'superAdmin' });
-        router.push('/dashboard');
-        return;
-      }
       const user = await authService.login(email, password);
       setStoredUser(user);
       router.push('/dashboard');

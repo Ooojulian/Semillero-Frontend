@@ -1,9 +1,19 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
+import rateLimit from 'express-rate-limit';
 import { authService } from '../services/authService';
 import { authenticate } from '../middlewares/auth';
 import { logger } from '../utils/logger';
 import { getCorrelationId } from '../utils/tracing';
+
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  keyGenerator: (req) => (req.body?.email as string | undefined) ?? req.ip ?? 'unknown',
+  message: { error: 'Demasiados intentos de login. Intenta de nuevo en 15 minutos.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 const router = Router();
 
@@ -28,7 +38,7 @@ router.post('/register', async (req: Request, res: Response, next: NextFunction)
   } catch (err) { next(err); }
 });
 
-router.post('/login', async (req: Request, res: Response, next: NextFunction) => {
+router.post('/login', loginLimiter, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { email, password } = loginSchema.parse(req.body);
     const tokens = await authService.login(email, password);
