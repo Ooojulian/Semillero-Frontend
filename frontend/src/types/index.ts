@@ -21,9 +21,11 @@ export interface Candidate {
   source: 'internal' | 'scraping';
   resume_url?: string;
   profile_url?: string;
+  linkedin_url?: string;
   created_by?: string;
   created_at: string;
   updated_at: string;
+  match_reason?: string;
 }
 
 export interface SearchHistory {
@@ -54,4 +56,24 @@ export interface Toast {
   id: string;
   type: 'success' | 'error' | 'info';
   message: string;
+}
+
+export interface CandidateNote {
+  id: string;
+  candidate_id: string;
+  author_id: string;
+  content: string;
+  created_at: string;
+  updated_at: string;
+  author?: { full_name: string; email: string };
+}
+
+export interface StatusHistoryEntry {
+  id: string;
+  candidate_id: string;
+  from_status: CandidateStatus | null;
+  to_status: CandidateStatus;
+  changed_by: string | null;
+  changed_at: string;
+  changer?: { full_name: string };
 }

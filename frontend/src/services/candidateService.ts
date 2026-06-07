@@ -1,11 +1,14 @@
 import { supabase } from '../lib/supabase';
-import { Candidate, CandidateStatus, PaginatedResponse } from '../types';
+import { Candidate, CandidateStatus, CandidateNote, StatusHistoryEntry, PaginatedResponse } from '../types';
 
 export interface CandidateFilters {
   search?: string;
   status?: CandidateStatus;
   location?: string;
+  source?: 'internal' | 'scraping';
   min_experience?: number;
+  max_experience?: number;
+  min_salary?: number;
   max_salary?: number;
 }
 
@@ -41,8 +44,11 @@ export const candidateService = {
       );
     }
     if (filters.status) query = query.eq('status', filters.status);
+    if (filters.source) query = query.eq('source', filters.source);
     if (filters.location) query = query.ilike('location', `%${filters.location}%`);
     if (filters.min_experience !== undefined) query = query.gte('experience_years', filters.min_experience);
+    if (filters.max_experience !== undefined) query = query.lte('experience_years', filters.max_experience);
+    if (filters.min_salary !== undefined) query = query.gte('expected_salary', filters.min_salary);
     if (filters.max_salary !== undefined) query = query.lte('expected_salary', filters.max_salary);
 
     const from = (page - 1) * limit;
@@ -56,13 +62,31 @@ export const candidateService = {
     return { items: data as Candidate[], total, page, limit, totalPages: Math.ceil(total / limit) };
   },
 
+  async listByStatus(): Promise<Record<CandidateStatus, Candidate[]>> {
+    const { data, error } = await supabase
+      .from('candidates')
+      .select('*')
+      .order('updated_at', { ascending: false });
+    if (error) throw new Error(error.message);
+
+    const grouped: Record<CandidateStatus, Candidate[]> = {
+      pending: [], interviewed: [], hired: [], rejected: [],
+    };
+    for (const c of (data ?? []) as Candidate[]) {
+      grouped[c.status]?.push(c);
+    }
+    return grouped;
+  },
+
   async getById(id: string): Promise<Candidate> {
     const { data, error } = await supabase.from('candidates').select('*').eq('id', id).single();
     if (error) throw new Error('Candidato no encontrado');
     return data as Candidate;
   },
 
-  async updateStatus(id: string, status: CandidateStatus): Promise<Candidate> {
+  async updateStatus(id: string, status: CandidateStatus, previousStatus?: CandidateStatus): Promise<Candidate> {
+    const { data: { user } } = await supabase.auth.getUser();
+
     const { data, error } = await supabase
       .from('candidates')
       .update({ status, updated_at: new Date().toISOString() })
@@ -70,6 +94,15 @@ export const candidateService = {
       .select()
       .single();
     if (error) throw new Error(error.message);
+
+    // Registrar en historial de etapas
+    await supabase.from('candidate_status_history').insert({
+      candidate_id: id,
+      from_status: previousStatus ?? null,
+      to_status: status,
+      changed_by: user?.id ?? null,
+    });
+
     return data as Candidate;
   },
 
@@ -85,5 +118,68 @@ export const candidateService = {
       acc[c.status] = (acc[c.status] ?? 0) + 1;
       return acc;
     }, {});
+  },
+
+  // ─── Notas ───────────────────────────────────────────────
+
+  async getNotes(candidateId: string): Promise<CandidateNote[]> {
+    const { data, error } = await supabase
+      .from('candidate_notes')
+      .select('*, author:profiles(full_name, email)')
+      .eq('candidate_id', candidateId)
+      .order('created_at', { ascending: false });
+    if (error) throw new Error(error.message);
+    return data as unknown as CandidateNote[];
+  },
+
+  async addNote(candidateId: string, content: string): Promise<CandidateNote> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('No autenticado');
+    const { data, error } = await supabase
+      .from('candidate_notes')
+      .insert({ candidate_id: candidateId, author_id: user.id, content })
+      .select('*, author:profiles(full_name, email)')
+      .single();
+    if (error) throw new Error(error.message);
+    return data as unknown as CandidateNote;
+  },
+
+  async deleteNote(noteId: string): Promise<void> {
+    const { error } = await supabase.from('candidate_notes').delete().eq('id', noteId);
+    if (error) throw new Error(error.message);
+  },
+
+  // ─── Historial de etapas ─────────────────────────────────
+
+  async getStatusHistory(candidateId: string): Promise<StatusHistoryEntry[]> {
+    const { data, error } = await supabase
+      .from('candidate_status_history')
+      .select('*, changer:profiles(full_name)')
+      .eq('candidate_id', candidateId)
+      .order('changed_at', { ascending: true });
+    if (error) throw new Error(error.message);
+    return data as unknown as StatusHistoryEntry[];
+  },
+
+  // ─── CV Upload ───────────────────────────────────────────
+
+  async uploadResume(candidateId: string, file: File): Promise<string> {
+    const ext = file.name.split('.').pop() ?? 'pdf';
+    const path = `${candidateId}/cv-${Date.now()}.${ext}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('resumes')
+      .upload(path, file, { upsert: true, contentType: file.type });
+    if (uploadError) throw new Error(uploadError.message);
+
+    const { data: { publicUrl } } = supabase.storage.from('resumes').getPublicUrl(path);
+
+    const { error: updateError } = await supabase
+      .from('candidates')
+      .update({ resume_url: publicUrl })
+      .eq('id', candidateId);
+    if (updateError) throw new Error(updateError.message);
+
+    return publicUrl;
   },
 };

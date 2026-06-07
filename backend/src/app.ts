@@ -4,12 +4,8 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { correlationMiddleware } from './utils/tracing';
 import { errorHandler } from './middlewares/errorHandler';
-import { logger } from './utils/logger';
-import authRouter from './routes/auth';
-import candidatesRouter from './routes/candidates';
-import adminRouter from './routes/admin';
-import chatRouter from './routes/chat';
 import { config } from './config';
+import chatRouter from './routes/chat';
 
 export const createApp = () => {
   const app = express();
@@ -23,13 +19,9 @@ export const createApp = () => {
 
   app.get('/health', (_req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
 
-  app.use('/api/auth', authRouter);
-  app.use('/api/candidates', candidatesRouter);
-  app.use('/api/admin', adminRouter);
   app.use('/api/chat', chatRouter);
 
   app.use(errorHandler);
-
   app.use((_req, res) => res.status(404).json({ error: 'Recurso no encontrado' }));
 
   return app;

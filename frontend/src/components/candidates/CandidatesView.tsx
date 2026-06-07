@@ -2,14 +2,19 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { CandidateTable } from './CandidateTable';
+import { CandidatePanel } from './CandidatePanel';
+import { KanbanBoard } from './KanbanBoard';
 import { candidateService, CreateCandidateInput } from '../../services/candidateService';
 import { Candidate } from '../../types';
 import { useToast } from '../../hooks/useToast';
 import { ToastContainer } from '../ui/Toast';
 
+type ViewMode = 'table' | 'kanban';
+
 export const CandidatesView = () => {
   const [showForm, setShowForm] = useState(false);
   const [selected, setSelected] = useState<Candidate | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>('table');
   const queryClient = useQueryClient();
   const toast = useToast();
 
@@ -17,6 +22,8 @@ export const CandidatesView = () => {
     mutationFn: (data: CreateCandidateInput) => candidateService.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['candidates'] });
+      queryClient.invalidateQueries({ queryKey: ['candidates-kanban'] });
+      queryClient.invalidateQueries({ queryKey: ['candidate-stats'] });
       setShowForm(false);
       toast.success('Candidato creado exitosamente');
     },
@@ -33,11 +40,30 @@ export const CandidatesView = () => {
             <h1>Candidatos</h1>
             <p>Gestiona el pipeline de reclutamiento</p>
           </div>
-          <button className="btn-primary" style={{ width: 'auto', padding: '10px 20px' }} onClick={() => setShowForm(true)}>
-            + Nuevo candidato
-          </button>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            {/* Toggle tabla / kanban */}
+            <div style={{
+              display: 'flex', background: 'var(--surface-2)', border: '1px solid var(--border)',
+              borderRadius: 'var(--radius)', padding: 3, gap: 2,
+            }}>
+              {(['table', 'kanban'] as ViewMode[]).map((mode) => (
+                <button key={mode} onClick={() => setViewMode(mode)} style={{
+                  padding: '6px 12px', borderRadius: 7, fontSize: 12, fontWeight: 500,
+                  background: viewMode === mode ? 'var(--accent)' : 'transparent',
+                  color: viewMode === mode ? '#fff' : 'var(--text-3)',
+                  transition: 'background 150ms',
+                }}>
+                  {mode === 'table' ? '≡ Tabla' : '⬜ Kanban'}
+                </button>
+              ))}
+            </div>
+            <button className="btn-primary" style={{ width: 'auto', padding: '10px 20px' }} onClick={() => setShowForm(true)}>
+              + Nuevo candidato
+            </button>
+          </div>
         </div>
 
+        {/* Modal: nuevo candidato */}
         {showForm && (
           <div className="modal-overlay" onClick={() => setShowForm(false)}>
             <div className="modal" onClick={(e) => e.stopPropagation()}>
@@ -54,27 +80,40 @@ export const CandidatesView = () => {
           </div>
         )}
 
+        {/* Modal: detalle + notas + historial */}
         {selected && (
           <div className="modal-overlay" onClick={() => setSelected(null)}>
-            <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal" style={{ maxWidth: 580 }} onClick={(e) => e.stopPropagation()}>
               <div className="modal-header">
                 <h3>{selected.full_name}</h3>
                 <button onClick={() => setSelected(null)} className="modal-close">×</button>
               </div>
-              <CandidateDetail candidate={selected} />
+              <CandidatePanel
+                candidate={selected}
+                onClose={() => setSelected(null)}
+                onUpdate={(updated) => setSelected(updated)}
+              />
             </div>
           </div>
         )}
 
-        <CandidateTable onSelect={setSelected} />
+        {viewMode === 'table'
+          ? <CandidateTable onSelect={setSelected} />
+          : <KanbanBoard onSelect={setSelected} />
+        }
       </div>
     </>
   );
 };
 
-const CandidateForm = ({ onSubmit, loading, error }: { onSubmit: (d: CreateCandidateInput) => void; loading: boolean; error: string | null }) => {
+const CandidateForm = ({ onSubmit, loading, error }: {
+  onSubmit: (d: CreateCandidateInput) => void;
+  loading: boolean;
+  error: string | null;
+}) => {
   const [form, setForm] = useState<CreateCandidateInput>({
-    full_name: '', email: '', phone: '', position: '', experience_years: undefined, expected_salary: undefined, location: '', resume_url: '',
+    full_name: '', email: '', phone: '', position: '',
+    experience_years: undefined, expected_salary: undefined, location: '',
   });
 
   const set = (k: keyof CreateCandidateInput) =>
@@ -111,15 +150,9 @@ const CandidateForm = ({ onSubmit, loading, error }: { onSubmit: (d: CreateCandi
           <input type="number" min={0} value={form.expected_salary ?? ''} onChange={(e) => setForm((f) => ({ ...f, expected_salary: e.target.value ? Number(e.target.value) : undefined }))} placeholder="3500000" />
         </div>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-        <div className="form-group">
-          <label>Ubicación</label>
-          <input value={form.location ?? ''} onChange={set('location')} placeholder="Bogotá, Colombia" />
-        </div>
-        <div className="form-group">
-          <label>URL del CV</label>
-          <input type="url" value={form.resume_url ?? ''} onChange={set('resume_url')} placeholder="https://..." />
-        </div>
+      <div className="form-group">
+        <label>Ubicación</label>
+        <input value={form.location ?? ''} onChange={set('location')} placeholder="Bogotá, Colombia" />
       </div>
       <button type="submit" className="btn-primary" disabled={loading}>
         {loading ? 'Guardando...' : 'Crear candidato'}
@@ -127,32 +160,3 @@ const CandidateForm = ({ onSubmit, loading, error }: { onSubmit: (d: CreateCandi
     </form>
   );
 };
-
-const fmt = (n?: number) => n !== undefined ? `$${n.toLocaleString('es-CO')}` : '—';
-
-const CandidateDetail = ({ candidate: c }: { candidate: Candidate }) => (
-  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-    {[
-      { label: 'Email',         value: c.email ?? '—' },
-      { label: 'Teléfono',      value: c.phone ?? '—' },
-      { label: 'Cargo',         value: c.position },
-      { label: 'Experiencia',   value: c.experience_years !== undefined ? `${c.experience_years} años` : '—' },
-      { label: 'Salario esp.',  value: fmt(c.expected_salary) },
-      { label: 'Ubicación',     value: c.location ?? '—' },
-      { label: 'Estado',        value: c.status },
-      { label: 'Fuente',        value: c.source === 'internal' ? 'Base interna' : 'Web scraping' },
-      { label: 'Registrado',    value: new Date(c.created_at).toLocaleString('es-CO') },
-    ].map(({ label, value }) => (
-      <div key={label} style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: 10 }}>
-        <span style={{ color: 'var(--text-3)', fontSize: 13 }}>{label}</span>
-        <span style={{ color: 'var(--text-1)', fontSize: 13 }}>{value}</span>
-      </div>
-    ))}
-    {c.resume_url && (
-      <a href={c.resume_url} target="_blank" rel="noopener noreferrer" className="btn-primary"
-        style={{ textAlign: 'center', display: 'block', marginTop: 8, textDecoration: 'none' }}>
-        Ver CV
-      </a>
-    )}
-  </div>
-);

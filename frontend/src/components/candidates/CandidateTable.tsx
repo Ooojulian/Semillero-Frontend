@@ -22,7 +22,7 @@ function exportCSV(items: Candidate[]) {
     c.experience_years ?? '', c.expected_salary ?? '',
     c.location ?? '', STATUS_LABELS[c.status],
     c.source === 'internal' ? 'Interno' : 'Web',
-    c.linkedin_url ?? '',
+    c.linkedin_url ?? c.profile_url ?? '',
     new Date(c.created_at).toLocaleDateString('es-CO'),
   ]);
   const csv = [headers, ...rows].map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
@@ -44,7 +44,7 @@ export const CandidateTable = ({ onSelect }: Props) => {
   const queryClient = useQueryClient();
   const toast = useToast();
 
-  const { data, isLoading, isError } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['candidates', page, filters],
     queryFn: () => candidateService.list(page, 15, filters),
     placeholderData: (prev) => prev,
@@ -80,7 +80,14 @@ export const CandidateTable = ({ onSelect }: Props) => {
 
   const activeFilterCount = Object.values(filters).filter(Boolean).length;
 
-  if (isError) return <div className="table-error">Error al cargar candidatos.</div>;
+  if (isError) return (
+    <div className="table-error" role="alert" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+      <span>No se pudieron cargar los candidatos. Verifica tu conexión.</span>
+      <button onClick={() => refetch()} style={{ fontSize: 13, color: 'var(--accent)', padding: '6px 16px', borderRadius: 8, background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+        Reintentar
+      </button>
+    </div>
+  );
 
   return (
     <>
@@ -171,8 +178,8 @@ export const CandidateTable = ({ onSelect }: Props) => {
               <label style={{ fontSize: 11 }}>Exp. mín (años)</label>
               <input
                 type="number" min={0} placeholder="0"
-                value={filters.minExperience ?? ''}
-                onChange={(e) => { setFilters((f) => ({ ...f, minExperience: e.target.value ? Number(e.target.value) : undefined })); setPage(1); }}
+                value={filters.min_experience ?? ''}
+                onChange={(e) => { setFilters((f) => ({ ...f, min_experience: e.target.value ? Number(e.target.value) : undefined })); setPage(1); }}
                 style={{ fontSize: 12, padding: '6px 10px' }}
               />
             </div>
@@ -180,8 +187,8 @@ export const CandidateTable = ({ onSelect }: Props) => {
               <label style={{ fontSize: 11 }}>Exp. máx (años)</label>
               <input
                 type="number" min={0} placeholder="10"
-                value={filters.maxExperience ?? ''}
-                onChange={(e) => { setFilters((f) => ({ ...f, maxExperience: e.target.value ? Number(e.target.value) : undefined })); setPage(1); }}
+                value={filters.max_experience ?? ''}
+                onChange={(e) => { setFilters((f) => ({ ...f, max_experience: e.target.value ? Number(e.target.value) : undefined })); setPage(1); }}
                 style={{ fontSize: 12, padding: '6px 10px' }}
               />
             </div>
@@ -189,8 +196,8 @@ export const CandidateTable = ({ onSelect }: Props) => {
               <label style={{ fontSize: 11 }}>Salario mín (COP)</label>
               <input
                 type="number" min={0} placeholder="2000000"
-                value={filters.minSalary ?? ''}
-                onChange={(e) => { setFilters((f) => ({ ...f, minSalary: e.target.value ? Number(e.target.value) : undefined })); setPage(1); }}
+                value={filters.min_salary ?? ''}
+                onChange={(e) => { setFilters((f) => ({ ...f, min_salary: e.target.value ? Number(e.target.value) : undefined })); setPage(1); }}
                 style={{ fontSize: 12, padding: '6px 10px' }}
               />
             </div>
@@ -198,8 +205,8 @@ export const CandidateTable = ({ onSelect }: Props) => {
               <label style={{ fontSize: 11 }}>Salario máx (COP)</label>
               <input
                 type="number" min={0} placeholder="10000000"
-                value={filters.maxSalary ?? ''}
-                onChange={(e) => { setFilters((f) => ({ ...f, maxSalary: e.target.value ? Number(e.target.value) : undefined })); setPage(1); }}
+                value={filters.max_salary ?? ''}
+                onChange={(e) => { setFilters((f) => ({ ...f, max_salary: e.target.value ? Number(e.target.value) : undefined })); setPage(1); }}
                 style={{ fontSize: 12, padding: '6px 10px' }}
               />
             </div>
@@ -276,8 +283,8 @@ export const CandidateTable = ({ onSelect }: Props) => {
                             <option key={s} value={s}>{STATUS_LABELS[s]}</option>
                           ))}
                         </select>
-                        {c.linkedin_url && (
-                          <a href={c.linkedin_url} target="_blank" rel="noopener noreferrer"
+                        {(c.linkedin_url ?? c.profile_url) && (
+                          <a href={(c.linkedin_url ?? c.profile_url)!} target="_blank" rel="noopener noreferrer"
                             style={{ fontSize: 14, color: 'var(--accent)', padding: '4px' }}
                             title="Ver LinkedIn">in</a>
                         )}

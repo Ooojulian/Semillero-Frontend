@@ -22,13 +22,13 @@ const statuses: CandidateStatus[] = ['pending', 'interviewed', 'hired', 'rejecte
 export const DashboardView = () => {
   const user = getStoredUser();
 
-  const { data: stats } = useQuery({
+  const { data: stats, isError: statsError, refetch: refetchStats } = useQuery({
     queryKey: ['candidate-stats'],
     queryFn: () => candidateService.getStatsByStatus(),
     refetchInterval: 30000,
   });
 
-  const { data: recent, isLoading } = useQuery({
+  const { data: recent, isLoading, isError: recentError, refetch: refetchRecent } = useQuery({
     queryKey: ['candidates-recent'],
     queryFn: () => candidateService.list(1, 8),
     refetchInterval: 30000,
@@ -54,6 +54,20 @@ export const DashboardView = () => {
         <h1>Dashboard</h1>
         <p>Bienvenido de nuevo, <strong style={{ color: 'var(--text-1)' }}>{user?.full_name ?? 'Usuario'}</strong></p>
       </div>
+
+      {(statsError || recentError) && (
+        <div style={{
+          background: 'rgba(248,113,113,.08)', border: '1px solid rgba(248,113,113,.2)',
+          borderRadius: 'var(--radius)', padding: '12px 16px', marginBottom: 24,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+        }} role="alert">
+          <span style={{ fontSize: 13, color: 'var(--red)' }}>No se pudieron cargar los datos. Verifica tu conexión.</span>
+          <button
+            onClick={() => { refetchStats(); refetchRecent(); }}
+            style={{ fontSize: 12, color: 'var(--accent)', fontWeight: 500, padding: '4px 12px', borderRadius: 6, background: 'var(--surface-2)', border: '1px solid var(--border)' }}
+          >Reintentar</button>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="stats-grid">
@@ -91,7 +105,7 @@ export const DashboardView = () => {
                 </Pie>
                 <Tooltip
                   contentStyle={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }}
-                  formatter={(v: number) => [`${v} candidatos`, '']}
+                  formatter={(v) => [`${v} candidatos`, '']}
                 />
               </PieChart>
             </ResponsiveContainer>

@@ -189,22 +189,32 @@ const CandidateCards = ({ candidates }: { candidates: Candidate[] }) => (
       <div key={c.id} style={{
         background: 'var(--surface-2)', border: '1px solid var(--border)',
         borderRadius: 10, padding: '12px 16px',
-        display: 'grid', gridTemplateColumns: '1fr auto', gap: 8, alignItems: 'start',
       }}>
-        <div>
-          <p style={{ fontWeight: 600, color: 'var(--text-1)', marginBottom: 4 }}>{c.full_name}</p>
-          <p style={{ fontSize: 12.5, color: 'var(--text-2)' }}>
-            {c.position}{c.location ? ` · ${c.location}` : ''}{c.experience_years ? ` · ${c.experience_years} años exp.` : ''}
-          </p>
-          {c.expected_salary && (
-            <p style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 4 }}>
-              Salario esperado: ${c.expected_salary.toLocaleString('es-CO')}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 8, alignItems: 'flex-start', marginBottom: c.match_reason ? 8 : 0 }}>
+          <div>
+            <p style={{ fontWeight: 600, color: 'var(--text-1)', marginBottom: 4 }}>{c.full_name}</p>
+            <p style={{ fontSize: 12.5, color: 'var(--text-2)' }}>
+              {c.position}{c.location ? ` · ${c.location}` : ''}{c.experience_years ? ` · ${c.experience_years} años exp.` : ''}
             </p>
-          )}
+            {c.expected_salary && (
+              <p style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 4 }}>
+                Salario esperado: ${c.expected_salary.toLocaleString('es-CO')}
+              </p>
+            )}
+          </div>
+          <span className={`badge ${c.source === 'internal' ? 'badge-hired' : 'badge-pending'}`} style={{ fontSize: 11 }}>
+            {c.source === 'internal' ? 'BD interna' : 'Web'}
+          </span>
         </div>
-        <span className={`badge ${c.source === 'internal' ? 'badge-hired' : 'badge-pending'}`} style={{ fontSize: 11 }}>
-          {c.source === 'internal' ? 'BD interna' : 'Web'}
-        </span>
+        {c.match_reason && (
+          <div style={{
+            fontSize: 11.5, color: 'var(--accent)', background: 'var(--accent-glow)',
+            borderRadius: 6, padding: '5px 10px', display: 'flex', alignItems: 'flex-start', gap: 6,
+          }}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ flexShrink: 0, marginTop: 1 }}><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            {c.match_reason}
+          </div>
+        )}
       </div>
     ))}
   </div>
