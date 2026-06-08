@@ -1,29 +1,13 @@
+# Requiere Dockerfiles en backend/ y frontend/ para funcionar.
+# Para desarrollo local usa: cd backend && npm run dev / cd frontend && npm run dev
 services:
-  db:
-    image: postgres:16-alpine
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: semillero
-      POSTGRES_USER: semillero
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-semillero_dev}
-    ports:
-      - "5434:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./backend/src/db/migrations/001_initial.sql:/docker-entrypoint-initdb.d/001_initial.sql
-
   backend:
     build: ./backend
     restart: unless-stopped
-    depends_on: [db]
+    env_file: ./backend/.env
     environment:
-      NODE_ENV: development
+      NODE_ENV: production
       PORT: 3001
-      DATABASE_URL: postgresql://semillero:semillero_dev@db:5432/semillero
-      JWT_SECRET: ${JWT_SECRET}
-      JWT_EXPIRES_IN: 15m
-      CORS_ORIGIN: http://localhost:3000
-      LOG_LEVEL: info
     ports:
       - "3001:3001"
     volumes:
@@ -33,11 +17,8 @@ services:
     build: ./frontend
     restart: unless-stopped
     depends_on: [backend]
+    env_file: ./frontend/.env.local
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:3001/api
-      NEXT_PUBLIC_WS_URL: http://localhost:3001
     ports:
-      - "3000:3000"
-
-volumes:
-  postgres_data:
+      - "3002:3000"

@@ -6,7 +6,12 @@ import { getCorrelationId } from '../utils/tracing';
 import rateLimit from 'express-rate-limit';
 
 const router = Router();
+// anon: solo para validar tokens de usuario
 const supabase = createClient(config.SUPABASE_URL, config.SUPABASE_ANON_KEY);
+// service_role: lectura/escritura sin restricción de RLS
+const supabaseAdmin = createClient(config.SUPABASE_URL, config.SUPABASE_SERVICE_ROLE_KEY, {
+  auth: { autoRefreshToken: false, persistSession: false },
+});
 
 const chatLimiter = rateLimit({
   windowMs: 60 * 1000,
@@ -52,7 +57,7 @@ router.post('/', chatLimiter, async (req: Request, res: Response): Promise<void>
       return;
     }
 
-    const { data: history } = await supabase
+    const { data: history } = await supabaseAdmin
       .from('chat_history')
       .select('role, content')
       .eq('user_id', user.id)
@@ -64,7 +69,7 @@ router.post('/', chatLimiter, async (req: Request, res: Response): Promise<void>
       content: m.content,
     }));
 
-    const { data: candidates } = await supabase
+    const { data: candidates } = await supabaseAdmin
       .from('candidates')
       .select('id, full_name, position, experience_years, expected_salary, location, source, status')
       .limit(150);
@@ -102,6 +107,7 @@ Cuando el usuario pida candidatos, responde SOLO con JSON puro sin markdown:
 
     try {
       const gptResponse = await callOpenAI(messages);
+      logger.info('GPT raw response', { correlationId: getCorrelationId(req), response: gptResponse.slice(0, 500) });
       const clean = gptResponse.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
       const parsed = JSON.parse(clean) as {
         message?: string;
@@ -120,7 +126,7 @@ Cuando el usuario pida candidatos, responde SOLO con JSON puro sin markdown:
       }
 
       if (resultsMap.size > 0) {
-        const { data: full } = await supabase
+        const { data: full } = await supabaseAdmin
           .from('candidates')
           .select('id, full_name, position, experience_years, expected_salary, location, source, status, profile_url')
           .in('id', [...resultsMap.keys()]);
@@ -130,7 +136,7 @@ Cuando el usuario pida candidatos, responde SOLO con JSON puro sin markdown:
     } catch {
       // Fallback por palabras clave
       const kw = message.toLowerCase().split(/\s+/).filter((w) => w.length > 3);
-      const { data: full } = await supabase
+      const { data: full } = await supabaseAdmin
         .from('candidates')
         .select('id, full_name, position, experience_years, expected_salary, location, source, status, profile_url')
         .limit(150);
@@ -149,12 +155,12 @@ Cuando el usuario pida candidatos, responde SOLO con JSON puro sin markdown:
 
     // Persistir historial de chat y búsqueda en paralelo
     await Promise.all([
-      supabase.from('chat_history').insert([
+      supabaseAdmin.from('chat_history').insert([
         { user_id: user.id, role: 'user', content: message.trim() },
         { user_id: user.id, role: 'assistant', content: responseMessage, candidates: filteredCandidates.length > 0 ? filteredCandidates : null },
       ]),
       filteredCandidates.length > 0
-        ? supabase.from('search_history').insert({
+        ? supabaseAdmin.from('search_history').insert({
             user_id: user.id,
             query: message.trim(),
             candidates_found: filteredCandidates.length,

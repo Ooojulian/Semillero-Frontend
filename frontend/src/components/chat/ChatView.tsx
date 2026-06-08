@@ -1,5 +1,6 @@
 'use client';
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { ChatMessage, Candidate } from '../../types';
 import { supabase } from '../../lib/supabase';
 
@@ -7,10 +8,11 @@ const formatTime = (iso: string) =>
   new Date(iso).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
 
 export const ChatView = () => {
+  const searchParams = useSearchParams();
   const [userId, setUserId] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [input, setInput] = useState('');
+  const [input, setInput] = useState(searchParams.get('q') ?? '');
   const [loading, setLoading] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const initialized = useRef(false);
