@@ -84,6 +84,17 @@ export const candidateService = {
     return data as Candidate;
   },
 
+  async update(id: string, data: Partial<CreateCandidateInput>): Promise<Candidate> {
+    const { data: result, error } = await supabase
+      .from('candidates')
+      .update({ ...data, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) throw new Error(error.message);
+    return result as Candidate;
+  },
+
   async updateStatus(id: string, status: CandidateStatus, previousStatus?: CandidateStatus): Promise<Candidate> {
     const { data: { user } } = await supabase.auth.getUser();
 

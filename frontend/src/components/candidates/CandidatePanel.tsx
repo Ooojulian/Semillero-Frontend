@@ -1,7 +1,7 @@
 'use client';
 import { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { candidateService } from '../../services/candidateService';
+import { candidateService, CreateCandidateInput } from '../../services/candidateService';
 import { Candidate, CandidateStatus, CandidateNote, StatusHistoryEntry } from '../../types';
 import { useToast } from '../../hooks/useToast';
 import { ToastContainer } from '../ui/Toast';
@@ -88,7 +88,7 @@ export const CandidatePanel = ({ candidate: initial, onClose, onUpdate }: Props)
         ))}
       </div>
 
-      {tab === 'info' && <InfoTab candidate={candidate} onResumeUploaded={(url) => setCandidate((c) => ({ ...c, resume_url: url }))} toast={toast} />}
+      {tab === 'info' && <InfoTab candidate={candidate} onResumeUploaded={(url) => setCandidate((c) => ({ ...c, resume_url: url }))} onUpdate={(updated) => { setCandidate(updated); onUpdate(updated); }} toast={toast} />}
       {tab === 'notas' && <NotasTab candidateId={candidate.id} toast={toast} />}
       {tab === 'historial' && <HistorialTab candidateId={candidate.id} />}
     </div>
@@ -97,13 +97,40 @@ export const CandidatePanel = ({ candidate: initial, onClose, onUpdate }: Props)
 
 // ─── Tab Info ────────────────────────────────────────────────────────────────
 
-function InfoTab({ candidate: c, onResumeUploaded, toast }: {
+function InfoTab({ candidate: c, onResumeUploaded, onUpdate, toast }: {
   candidate: Candidate;
   onResumeUploaded: (url: string) => void;
+  onUpdate: (c: Candidate) => void;
   toast: ReturnType<typeof useToast>;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState<CreateCandidateInput>({
+    full_name: c.full_name,
+    email: c.email,
+    phone: c.phone,
+    position: c.position,
+    experience_years: c.experience_years,
+    expected_salary: c.expected_salary,
+    location: c.location,
+    resume_url: c.resume_url,
+  });
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const updated = await candidateService.update(c.id, form);
+      onUpdate(updated);
+      setEditing(false);
+      toast.success('Candidato actualizado');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Error al guardar');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -126,13 +153,59 @@ function InfoTab({ candidate: c, onResumeUploaded, toast }: {
     }
   };
 
+  if (editing) return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+        <div className="form-group" style={{ margin: 0 }}>
+          <label>Nombre completo *</label>
+          <input value={form.full_name} onChange={(e) => setForm((f) => ({ ...f, full_name: e.target.value }))} />
+        </div>
+        <div className="form-group" style={{ margin: 0 }}>
+          <label>Cargo *</label>
+          <input value={form.position} onChange={(e) => setForm((f) => ({ ...f, position: e.target.value }))} />
+        </div>
+        <div className="form-group" style={{ margin: 0 }}>
+          <label>Email</label>
+          <input type="email" value={form.email ?? ''} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value || undefined }))} />
+        </div>
+        <div className="form-group" style={{ margin: 0 }}>
+          <label>Teléfono</label>
+          <input value={form.phone ?? ''} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value || undefined }))} />
+        </div>
+        <div className="form-group" style={{ margin: 0 }}>
+          <label>Experiencia (años)</label>
+          <input type="number" min={0} value={form.experience_years ?? ''} onChange={(e) => setForm((f) => ({ ...f, experience_years: e.target.value ? Number(e.target.value) : undefined }))} />
+        </div>
+        <div className="form-group" style={{ margin: 0 }}>
+          <label>Salario esperado (COP)</label>
+          <input type="number" min={0} value={form.expected_salary ?? ''} onChange={(e) => setForm((f) => ({ ...f, expected_salary: e.target.value ? Number(e.target.value) : undefined }))} />
+        </div>
+        <div className="form-group" style={{ margin: 0, gridColumn: '1 / -1' }}>
+          <label>Ubicación</label>
+          <input value={form.location ?? ''} onChange={(e) => setForm((f) => ({ ...f, location: e.target.value || undefined }))} />
+        </div>
+      </div>
+      <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+        <button onClick={handleSave} disabled={saving || !form.full_name || !form.position}
+          className="btn-primary" style={{ flex: 1, marginTop: 0, padding: '9px' }}>
+          {saving ? 'Guardando...' : 'Guardar cambios'}
+        </button>
+        <button onClick={() => setEditing(false)}
+          style={{ padding: '9px 16px', borderRadius: 'var(--radius)', background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text-2)', fontSize: 13 }}>
+          Cancelar
+        </button>
+      </div>
+    </div>
+  );
+
   const fields = [
-    { label: 'Email', value: c.email },
-    { label: 'Teléfono', value: c.phone },
-    { label: 'Experiencia', value: c.experience_years !== undefined ? `${c.experience_years} años` : undefined },
-    { label: 'Salario esperado', value: c.expected_salary !== undefined ? fmt(c.expected_salary) : undefined },
-    { label: 'Fuente', value: c.source === 'internal' ? 'Base interna' : 'Web scraping' },
-    { label: 'Registrado', value: fmtDate(c.created_at) },
+    { label: 'Email',          value: c.email },
+    { label: 'Teléfono',       value: c.phone },
+    { label: 'Experiencia',    value: c.experience_years !== undefined ? `${c.experience_years} años` : undefined },
+    { label: 'Salario esp.',   value: c.expected_salary !== undefined ? fmt(c.expected_salary) : undefined },
+    { label: 'Ubicación',      value: c.location },
+    { label: 'Fuente',         value: c.source === 'internal' ? 'Base interna' : 'Web scraping' },
+    { label: 'Registrado',     value: fmtDate(c.created_at) },
   ];
 
   return (
@@ -153,10 +226,16 @@ function InfoTab({ candidate: c, onResumeUploaded, toast }: {
       )}
 
       <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <button onClick={() => setEditing(true)}
+          style={{ padding: '8px 16px', borderRadius: 'var(--radius)', background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text-2)', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center' }}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          Editar información
+        </button>
+
         {c.resume_url ? (
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <a href={c.resume_url} target="_blank" rel="noopener noreferrer"
-              className="btn-primary" style={{ flex: 1, textAlign: 'center', textDecoration: 'none', display: 'block', padding: '9px' }}>
+              className="btn-primary" style={{ flex: 1, textAlign: 'center', textDecoration: 'none', display: 'block', padding: '9px', marginTop: 0 }}>
               Ver CV
             </a>
             <button onClick={() => fileRef.current?.click()} disabled={uploading}
