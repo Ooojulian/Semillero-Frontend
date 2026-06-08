@@ -16,12 +16,13 @@ export async function POST(req: NextRequest) {
     profile_url?: string;
     resume_url?: string;
     cover_letter?: string;
+    vacancy_id?: string;
   };
 
   try { body = await req.json(); }
   catch { return NextResponse.json({ error: 'Body inválido' }, { status: 400 }); }
 
-  const { full_name, position } = body;
+  const { full_name, position, vacancy_id } = body;
   if (!full_name?.trim()) return NextResponse.json({ error: 'El nombre es requerido' }, { status: 400 });
   if (!position?.trim()) return NextResponse.json({ error: 'El cargo al que aplicas es requerido' }, { status: 400 });
   if (body.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email)) {
@@ -64,6 +65,7 @@ export async function POST(req: NextRequest) {
       resume_url: body.resume_url?.trim() || null,
       source: 'applicant',
       status: 'pending',
+      vacancy_id: vacancy_id ?? null,
     })
     .select('id')
     .single();

@@ -22,6 +22,8 @@ export interface Candidate {
   resume_url?: string;
   profile_url?: string;
   linkedin_url?: string;
+  vacancy_id?: string;
+  vacancy?: Vacancy;
   created_by?: string;
   created_at: string;
   updated_at: string;
@@ -56,6 +58,28 @@ export interface Toast {
   id: string;
   type: 'success' | 'error' | 'info';
   message: string;
+}
+
+export type VacancyStatus = 'active' | 'paused' | 'closed';
+export type VacancyModality = 'presencial' | 'remoto' | 'híbrido';
+
+export interface Vacancy {
+  id: string;
+  title: string;
+  company: string;
+  description?: string;
+  location?: string;
+  modality: VacancyModality;
+  salary_min?: number;
+  salary_max?: number;
+  experience_years_min?: number;
+  skills?: string[];
+  status: VacancyStatus;
+  created_by?: string;
+  deadline?: string;
+  created_at: string;
+  updated_at: string;
+  applicants_count?: number;
 }
 
 export interface CandidateNote {

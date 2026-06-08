@@ -114,7 +114,38 @@ export const candidateService = {
       changed_by: user?.id ?? null,
     });
 
-    return data as Candidate;
+    const candidate = data as Candidate;
+
+    // Notificar al candidato por email si tiene email y el estado es relevante
+    if (candidate.email && ['interviewed', 'hired', 'rejected'].includes(status)) {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        let vacancyTitle: string | undefined;
+        let company: string | undefined;
+        if (candidate.vacancy_id) {
+          const { data: vacancy } = await supabase
+            .from('vacancies')
+            .select('title, company')
+            .eq('id', candidate.vacancy_id)
+            .single();
+          vacancyTitle = vacancy?.title;
+          company = vacancy?.company;
+        }
+        fetch('/api/notify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+          body: JSON.stringify({
+            candidate_email: candidate.email,
+            candidate_name: candidate.full_name,
+            status,
+            vacancy_title: vacancyTitle ?? candidate.position,
+            company,
+          }),
+        }).catch(() => null); // fire-and-forget
+      }
+    }
+
+    return candidate;
   },
 
   async delete(id: string): Promise<void> {

@@ -1,10 +1,10 @@
-import { ApplyForm } from '../../components/apply/ApplyForm';
+import { ApplyLanding } from '../../components/apply/ApplyLanding';
 
 export const metadata = {
-  title: 'Aplica al semillero — Semillero',
-  description: 'Envía tu aplicación y te contactaremos pronto.',
+  title: 'Vacantes disponibles — Semillero',
+  description: 'Explora las posiciones abiertas y aplica directamente.',
 };
 
 export default function ApplyPage() {
-  return <ApplyForm />;
+  return <ApplyLanding />;
 }
