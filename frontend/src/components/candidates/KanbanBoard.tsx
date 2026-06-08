@@ -209,10 +209,10 @@ function KanbanCard({ candidate: c, onSelect, onDragStart, onDragEnd, isDragging
         )}
         <span style={{
           fontSize: 10, marginLeft: 'auto', padding: '2px 6px', borderRadius: 999,
-          background: c.source === 'internal' ? 'rgba(52,211,153,.1)' : 'rgba(251,191,36,.1)',
-          color: c.source === 'internal' ? 'var(--green)' : 'var(--yellow)',
+          background: c.source === 'internal' ? 'rgba(52,211,153,.1)' : c.source === 'applicant' ? 'rgba(155,127,212,.1)' : 'rgba(251,191,36,.1)',
+          color: c.source === 'internal' ? 'var(--green)' : c.source === 'applicant' ? 'var(--purple)' : 'var(--yellow)',
         }}>
-          {c.source === 'internal' ? 'BD' : 'Web'}
+          {c.source === 'internal' ? 'BD' : c.source === 'applicant' ? 'Aplicante' : 'Web'}
         </span>
       </div>
     </div>

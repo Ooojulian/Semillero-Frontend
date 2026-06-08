@@ -18,7 +18,7 @@ export interface Candidate {
   expected_salary?: number;
   location?: string;
   status: CandidateStatus;
-  source: 'internal' | 'scraping';
+  source: 'internal' | 'scraping' | 'applicant';
   resume_url?: string;
   profile_url?: string;
   linkedin_url?: string;

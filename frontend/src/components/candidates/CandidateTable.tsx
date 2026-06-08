@@ -21,7 +21,7 @@ function exportCSV(items: Candidate[]) {
     c.full_name, c.email ?? '', c.phone ?? '', c.position,
     c.experience_years ?? '', c.expected_salary ?? '',
     c.location ?? '', STATUS_LABELS[c.status],
-    c.source === 'internal' ? 'Interno' : 'Web',
+    c.source === 'internal' ? 'Interno' : c.source === 'applicant' ? 'Aplicante' : 'Web',
     c.linkedin_url ?? c.profile_url ?? '',
     new Date(c.created_at).toLocaleDateString('es-CO'),
   ]);
@@ -214,12 +214,13 @@ export const CandidateTable = ({ onSelect }: Props) => {
               <label style={{ fontSize: 11 }}>Fuente</label>
               <select
                 value={filters.source ?? ''}
-                onChange={(e) => { setFilters((f) => ({ ...f, source: (e.target.value as 'internal' | 'scraping') || undefined })); setPage(1); }}
+                onChange={(e) => { setFilters((f) => ({ ...f, source: (e.target.value as 'internal' | 'scraping' | 'applicant') || undefined })); setPage(1); }}
                 style={{ fontSize: 12, padding: '6px 10px' }}
               >
                 <option value="">Todas</option>
                 <option value="internal">Interno</option>
-                <option value="scraping">Web</option>
+                <option value="scraping">Web scraping</option>
+                <option value="applicant">Aplicante</option>
               </select>
             </div>
           </div>
@@ -269,8 +270,8 @@ export const CandidateTable = ({ onSelect }: Props) => {
                       <td>{c.location ?? '—'}</td>
                       <td><span className={`badge ${STATUS_COLORS[c.status]}`}>{STATUS_LABELS[c.status]}</span></td>
                       <td>
-                        <span className={`badge ${c.source === 'internal' ? 'badge-hired' : 'badge-pending'}`}>
-                          {c.source === 'internal' ? 'Interno' : 'Web'}
+                        <span className={`badge ${c.source === 'internal' ? 'badge-hired' : c.source === 'applicant' ? 'badge-applicant' : 'badge-pending'}`}>
+                          {c.source === 'internal' ? 'Interno' : c.source === 'applicant' ? 'Aplicante' : 'Web'}
                         </span>
                       </td>
                       <td className="actions-cell" onClick={(e) => e.stopPropagation()}>

@@ -204,7 +204,7 @@ function InfoTab({ candidate: c, onResumeUploaded, onUpdate, toast }: {
     { label: 'Experiencia',    value: c.experience_years !== undefined ? `${c.experience_years} años` : undefined },
     { label: 'Salario esp.',   value: c.expected_salary !== undefined ? fmt(c.expected_salary) : undefined },
     { label: 'Ubicación',      value: c.location },
-    { label: 'Fuente',         value: c.source === 'internal' ? 'Base interna' : 'Web scraping' },
+    { label: 'Fuente',         value: c.source === 'internal' ? 'Base interna' : c.source === 'applicant' ? 'Aplicó directamente' : 'Web scraping' },
     { label: 'Registrado',     value: fmtDate(c.created_at) },
   ];
 

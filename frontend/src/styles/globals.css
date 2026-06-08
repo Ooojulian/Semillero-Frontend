@@ -897,3 +897,165 @@ select {
   h1 { font-size: 1.7rem; }
   .main-content { padding: 60px 14px 20px; }
 }
+
+/* ─── Portal de aplicación pública ──────────────────────── */
+.apply-page {
+  min-height: 100vh;
+  background: var(--bg);
+  background-image:
+    radial-gradient(ellipse 80% 60% at 0% 0%, rgba(212,132,90,.07) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 80% at 100% 100%, rgba(90,143,212,.05) 0%, transparent 60%);
+}
+
+.apply-split {
+  display: grid;
+  grid-template-columns: 420px 1fr;
+  min-height: 100vh;
+}
+
+.apply-aside {
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  padding: 0;
+}
+
+.apply-aside-inner {
+  padding: 48px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+  min-height: 100%;
+}
+
+.apply-logo { display: flex; align-items: center; gap: 10px; }
+
+.apply-headline h1 {
+  font-size: clamp(2.2rem, 3.5vw, 3rem);
+  line-height: 1.1;
+  margin-bottom: 16px;
+  color: var(--text-1);
+}
+
+.apply-headline h1 em {
+  color: var(--accent);
+  font-style: italic;
+}
+
+.apply-headline p {
+  font-size: 14px;
+  color: var(--text-3);
+  line-height: 1.7;
+}
+
+.apply-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  margin-top: auto;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+
+.apply-step {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.apply-step-n {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--accent);
+  background: var(--accent-subtle);
+  border: 1px solid rgba(212,132,90,.2);
+  padding: 3px 8px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.apply-step-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-1);
+  margin-bottom: 3px;
+}
+
+.apply-step-desc {
+  font-size: 12px;
+  color: var(--text-3);
+  line-height: 1.5;
+}
+
+.apply-main {
+  overflow-y: auto;
+  padding: 48px 40px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+.apply-form-wrapper {
+  width: 100%;
+  max-width: 560px;
+}
+
+.apply-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.apply-fieldset {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.apply-fieldset legend {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  padding: 0 8px;
+}
+
+.apply-upload {
+  border: 1px dashed var(--border-2);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  cursor: pointer;
+  transition: border-color var(--mid), background var(--mid);
+  background: var(--surface-2);
+}
+
+.apply-upload:hover {
+  border-color: var(--accent);
+  background: var(--accent-subtle);
+}
+
+/* Badge applicant */
+.badge-applicant { background: rgba(155,127,212,.1); color: var(--purple); }
+.badge-applicant::before { background: var(--purple); }
+
+@media (max-width: 900px) {
+  .apply-split { grid-template-columns: 1fr; }
+  .apply-aside { position: static; height: auto; border-right: none; border-bottom: 1px solid var(--border); }
+  .apply-aside-inner { padding: 32px 24px; gap: 28px; }
+  .apply-main { padding: 32px 24px; }
+  .apply-steps { display: none; }
+}
+
+@media (max-width: 600px) {
+  .apply-grid-2 { grid-template-columns: 1fr; }
+  .apply-fieldset { padding: 16px; }
+}

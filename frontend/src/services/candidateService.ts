@@ -5,7 +5,7 @@ export interface CandidateFilters {
   search?: string;
   status?: CandidateStatus;
   location?: string;
-  source?: 'internal' | 'scraping';
+  source?: 'internal' | 'scraping' | 'applicant';
   min_experience?: number;
   max_experience?: number;
   min_salary?: number;
