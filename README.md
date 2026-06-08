@@ -1,6 +1,8 @@
 # Semillero — Plataforma de Reclutamiento
 
-Herramienta interna para gestionar el pipeline de candidatos de un semillero de talento. Incluye CRUD de candidatos, tablero Kanban, notas por candidato, historial de etapas y búsqueda por lenguaje natural con IA.
+Plataforma que automatiza el proceso de contratación: desde publicar una vacante hasta contratar al candidato, con búsqueda por inteligencia artificial y notificaciones automáticas por email.
+
+> **¿Qué puede hacer esta plataforma?** Lee el manual completo en [FUNCIONALIDADES.md](./FUNCIONALIDADES.md).
 
 ---
 
@@ -37,17 +39,18 @@ NEXT_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_...
 NEXT_PUBLIC_API_URL=http://localhost:3001/api
 NEXT_PUBLIC_WS_URL=http://localhost:3001
-SUPABASE_SERVICE_ROLE_KEY=sb_secret_...
+SUPABASE_SERVICE_ROLE_KEY=eyJ...   # Supabase → Settings → API → service_role
+RESEND_API_KEY=re_...              # resend.com → API Keys (opcional, para emails)
 ```
-
-> `SUPABASE_SERVICE_ROLE_KEY` se obtiene en Supabase → Settings → API → `service_role`. Necesaria para crear y eliminar usuarios desde la app.
 
 ### 2. Configurar la base de datos en Supabase
 
 En el SQL Editor de Supabase, ejecuta en orden:
 
-1. `backend/src/db/migrations/002_supabase_schema.sql` — tablas principales
+1. `backend/src/db/migrations/002_supabase_schema.sql` — tablas principales (candidatos, perfiles, chat)
 2. `backend/src/db/migrations/003_candidate_features.sql` — notas e historial de etapas
+3. `backend/src/db/migrations/004_applicant_source.sql` — fuente "applicant" para portal público
+4. `backend/src/db/migrations/005_vacancies.sql` — sistema de vacantes
 
 Luego en **Storage → New bucket**:
 - Nombre: `resumes`
@@ -96,17 +99,29 @@ semillero/
 │
 └── frontend/         # Next.js 14 App Router (puerto 3002)
     └── src/
-        ├── app/                  # Pages + API routes
-        │   └── api/
+        ├── app/                  # Páginas + API routes
+        │   ├── apply/            # Portal público de aplicación (sin login)
+        │   ├── candidates/       # Gestión de candidatos
+        │   ├── vacancies/        # Gestión de vacantes
+        │   ├── chat/             # Búsqueda IA
+        │   ├── dashboard/        # Estadísticas
+        │   ├── history/          # Historial de búsquedas
+        │   ├── users/            # Gestión de usuarios (superAdmin)
+        │   └── api/              # API routes internas
         │       ├── chat/         # Proxy → backend Express
-        │       └── admin/users/  # CRUD usuarios con Supabase Admin SDK
+        │       ├── apply/        # Aplicación pública + upload CV
+        │       ├── admin/users/  # CRUD usuarios con Supabase Admin SDK
+        │       └── notify/       # Envío de emails con Resend
         ├── components/
+        │   ├── apply/            # ApplyLanding, ApplyVacancyForm
         │   ├── candidates/       # CandidatesView, CandidateTable, KanbanBoard, CandidatePanel
-        │   ├── chat/             # ChatView — búsqueda IA
-        │   ├── dashboard/        # DashboardView — estadísticas
+        │   ├── vacancies/        # VacanciesView
+        │   ├── chat/             # ChatView, SearchHistoryView
+        │   ├── dashboard/        # DashboardView
         │   └── layout/           # AppShell + Sidebar (responsive)
         └── services/
-            └── candidateService.ts   # Toda la lógica de datos contra Supabase
+            ├── candidateService.ts   # CRUD candidatos + notas + historial + CV upload
+            └── vacancyService.ts     # CRUD vacantes
 ```
 
 **Fuente única de datos:** Supabase. El backend Express existe únicamente para mantener `OPENAI_API_KEY` fuera del navegador.
